@@ -1,0 +1,37 @@
+@page "/login"
+@inject AuthService Auth
+
+<h3>Login</h3>
+
+<div>
+    <input placeholder="email" @bind="email" />
+    <input placeholder="password" type="password" @bind="password" />
+    <button @onclick="DoLogin">Login</button>
+</div>
+
+@if (loginFailed)
+{
+    <p style="color:red">Login failed.</p>
+}
+
+@code {
+    private string email = "";
+    private string password = "";
+    private bool loginFailed = false;
+
+    private async Task DoLogin()
+    {
+        loginFailed = false;
+        var ok = await Auth.Login(email, password);
+        if (ok)
+        {
+            Navigation.NavigateTo("/feed");
+        }
+        else
+        {
+            loginFailed = true;
+        }
+    }
+
+    [Inject] NavigationManager Navigation { get; set; } = null!;
+}

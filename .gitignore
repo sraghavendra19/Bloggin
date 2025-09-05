@@ -1,0 +1,22 @@
+# Build files
+bin/
+obj/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Secrets
+appsettings.Development.json
+appsettings.Local.json

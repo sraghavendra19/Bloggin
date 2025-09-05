@@ -1,0 +1,39 @@
+@page "/register"
+@inject AuthService Auth
+@using Blogging.Shared.DTOs
+
+<h3>Register</h3>
+
+<div>
+    <input placeholder="email" @bind="email" />
+    <input placeholder="password" type="password" @bind="password" />
+    <button @onclick="DoRegister">Register</button>
+</div>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <p style="color:red">@error</p>
+}
+
+@code {
+    private string email = "";
+    private string password = "";
+    private string error = "";
+
+    private async Task DoRegister()
+    {
+        error = "";
+        var res = await Auth.Register(email, password);
+        if (res == null)
+        {
+            // success, navigate to login
+            Navigation.NavigateTo("/login");
+        }
+        else
+        {
+            error = res;
+        }
+    }
+
+    [Inject] NavigationManager Navigation { get; set; } = null!;
+}

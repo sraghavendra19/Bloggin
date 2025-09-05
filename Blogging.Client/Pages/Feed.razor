@@ -1,0 +1,41 @@
+@page "/feed"
+@inject ApiService Api
+
+<h3>Feed</h3>
+
+@if (posts == null)
+{
+    <p>Loading...</p>
+}
+else if (!posts.Any())
+{
+    <p>No posts yet.</p>
+}
+else
+{
+    foreach (var p in posts)
+    {
+        <div class="post-card">
+            <h4>@p.Title</h4>
+            <p><em>By @p.AuthorEmail on @p.CreatedAt.ToLocalTime().ToString("g")</em></p>
+            <div>@(GetExcerpt(p.Markdown))</div>
+            <hr />
+        </div>
+    }
+}
+
+@code {
+    private List<Blogging.Shared.Models.Post>? posts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        posts = await Api.GetAsync<List<Blogging.Shared.Models.Post>>("/api/posts");
+    }
+
+    string GetExcerpt(string md)
+    {
+        if (string.IsNullOrEmpty(md)) return "";
+        var plain = md.Length <= 200 ? md : md.Substring(0, 200) + "...";
+        return plain;
+    }
+}
