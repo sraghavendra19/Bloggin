@@ -1,0 +1,54 @@
+@page "/myposts"
+@using Blogging.Client.Services
+@using Blogging.Shared.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@inject PostService PostService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+
+<h3>My Posts</h3>
+
+@if (isLoading)
+{
+    <p>Loading your posts...</p>
+}
+else if (myPosts.Count == 0)
+{
+    <p>You haven't created any posts yet.</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var post in myPosts)
+        {
+            <li class="list-group-item">
+                <b>@post.Title</b> 
+                <br />
+                <small>Created: @post.CreatedAt.ToLocalTime()</small>
+                <br />
+                <button class="btn btn-sm btn-outline-primary me-2" @onclick='() => Nav.NavigateTo($"/posts/{post.Id}")'>View</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<Post> myPosts = new();
+    private bool isLoading = true;
+    private string? userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        userId = user.FindFirst("id")?.Value;
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            var allPosts = await PostService.GetAllAsync();
+            myPosts = allPosts.Where(p => p.AuthorId == userId).ToList();
+        }
+
+        isLoading = false;
+    }
+}

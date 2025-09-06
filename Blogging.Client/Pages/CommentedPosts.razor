@@ -1,0 +1,56 @@
+@page "/commentedposts"
+@using Blogging.Client.Services
+@using Blogging.Shared.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@inject PostService PostService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+
+<h3>Posts I Commented On</h3>
+
+@if (isLoading)
+{
+    <p>Loading commented posts...</p>
+}
+else if (commentedPosts.Count == 0)
+{
+    <p>You haven't commented on any posts yet.</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var post in commentedPosts)
+        {
+            <li class="list-group-item">
+                <b>@post.Title</b> by @post.AuthorEmail
+                <br />
+                <small>Comments: @post.Comments.Count</small>
+                <br />
+                <button class="btn btn-sm btn-outline-primary me-2" @onclick='() => Nav.NavigateTo($"/posts/{post.Id}")'>View</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<Post> commentedPosts = new();
+    private bool isLoading = true;
+    private string? userEmail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        userEmail = user.FindFirst("email")?.Value;
+
+        if (!string.IsNullOrEmpty(userEmail))
+        {
+            var allPosts = await PostService.GetAllAsync();
+            commentedPosts = allPosts
+                .Where(p => p.Comments.Any(c => c.AuthorEmail == userEmail))
+                .ToList();
+        }
+
+        isLoading = false;
+    }
+}

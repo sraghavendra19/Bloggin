@@ -1,41 +1,105 @@
-@page "/feed"
-@inject ApiService Api
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavManager
+@inject Blogging.Client.Services.AuthService AuthService
 
-<h3>Feed</h3>
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Blogging Platform</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
 
-@if (posts == null)
-{
-    <p>Loading...</p>
-}
-else if (!posts.Any())
-{
-    <p>No posts yet.</p>
-}
-else
-{
-    foreach (var p in posts)
-    {
-        <div class="post-card">
-            <h4>@p.Title</h4>
-            <p><em>By @p.AuthorEmail on @p.CreatedAt.ToLocalTime().ToString("g")</em></p>
-            <div>@(GetExcerpt(p.Markdown))</div>
-            <hr />
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill" aria-hidden="true"></span> Home
+            </NavLink>
         </div>
-    }
-}
+
+        @if (isLoggedIn)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="feed">
+                    <span class="bi bi-rss-fill" aria-hidden="true"></span> Feed
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="write">
+                    <span class="bi bi-pencil-square" aria-hidden="true"></span> Write
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="myposts">
+                    <span class="bi bi-file-earmark-text-fill" aria-hidden="true"></span> My Posts
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="likedposts">
+                    <span class="bi bi-heart-fill" aria-hidden="true"></span> Liked Posts
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="commentedposts">
+                    <span class="bi bi-chat-left-text-fill" aria-hidden="true"></span> Commented Posts
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <a class="nav-link" href="#" @onclick="Logout" @onclick:preventDefault>
+                    <span class="bi bi-box-arrow-left" aria-hidden="true"></span> Logout (@userEmail)
+                </a>
+            </div>
+        }
+        else
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="login">
+                    <span class="bi bi-box-arrow-in-right" aria-hidden="true"></span> Login
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="register">
+                    <span class="bi bi-person-plus-fill" aria-hidden="true"></span> Register
+                </NavLink>
+            </div>
+        }
+    </nav>
+</div>
 
 @code {
-    private List<Blogging.Shared.Models.Post>? posts;
+    private bool collapseNavMenu = true;
+    private bool isLoggedIn;
+    private string? userEmail;
 
-    protected override async Task OnInitializedAsync()
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
+
+    protected override async Task OnInitializedAsync() => await CheckAuthStateAsync();
+
+    private async Task CheckAuthStateAsync()
     {
-        posts = await Api.GetAsync<List<Blogging.Shared.Models.Post>>("/api/posts");
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        isLoggedIn = user.Identity?.IsAuthenticated ?? false;
+        userEmail = isLoggedIn ? user.FindFirst("email")?.Value : null;
     }
 
-    string GetExcerpt(string md)
+    private async Task Logout()
     {
-        if (string.IsNullOrEmpty(md)) return "";
-        var plain = md.Length <= 200 ? md : md.Substring(0, 200) + "...";
-        return plain;
+        await AuthService.Logout();
+        await CheckAuthStateAsync(); // refresh state
+        NavManager.NavigateTo("/", forceLoad: true);
     }
 }

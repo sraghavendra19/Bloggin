@@ -1,0 +1,94 @@
+@page "/posts/{Id}"
+@using Blogging.Client.Services
+@using Blogging.Shared.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthService AuthService
+@inject PostService PostService
+@inject AuthenticationStateProvider AuthStateProvider
+
+<h3>Post Details</h3>
+
+@if (post == null)
+{
+    <p>Loading post...</p>
+}
+else
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <h4>@post.Title</h4>
+            <p>@post.Content</p>
+            <p><small>by @post.AuthorEmail on @post.CreatedAt.ToLocalTime()</small></p>
+
+            <button class="btn btn-sm @(isLiked ? "btn-danger" : "btn-outline-danger")" @onclick="ToggleLike">
+                ❤️ @(isLiked ? "Unlike" : "Like") (@likesCount)
+            </button>
+        </div>
+    </div>
+
+    <h5>Comments</h5>
+    <ul class="list-group mb-2">
+        @foreach (var c in post.Comments)
+        {
+            <li class="list-group-item">
+                <b>@c.AuthorEmail</b>: @c.Text 
+                <br /><small>@c.CreatedAt.ToLocalTime()</small>
+            </li>
+        }
+    </ul>
+
+    <textarea class="form-control mb-2" placeholder="Add a comment..." @bind="commentText"></textarea>
+    <button class="btn btn-primary" @onclick="AddComment">Add Comment</button>
+}
+
+@code {
+    [Parameter] public string Id { get; set; } = default!;
+    private Post? post;
+    private string commentText = "";
+    private bool isLiked = false;
+    private int likesCount = 0;
+    private string? userId;
+    private string? userEmail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get current user info
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        userId = user.FindFirst("id")?.Value;
+        userEmail = user.FindFirst("email")?.Value;
+
+        await LoadPostAsync();
+    }
+
+    private async Task LoadPostAsync()
+    {
+        post = await PostService.GetByIdAsync(Id);
+        if (post != null)
+        {
+            likesCount = post.Likes.Count;
+
+            // Check if current user has liked this post
+            isLiked = !string.IsNullOrEmpty(userId) && post.Likes.Contains(userId);
+        }
+    }
+
+    private async Task AddComment()
+    {
+        if (!string.IsNullOrWhiteSpace(commentText))
+        {
+            await PostService.AddCommentAsync(Id, commentText);
+            await LoadPostAsync();  // Refresh post data
+            commentText = "";
+        }
+    }
+
+    private async Task ToggleLike()
+    {
+        if (!string.IsNullOrEmpty(userId))
+        {
+            likesCount = await PostService.ToggleLikeAsync(Id, !isLiked);
+            isLiked = !isLiked;
+        }
+    }
+}

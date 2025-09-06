@@ -3,40 +3,44 @@ using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Microsoft.JSInterop;
 
-public class ApiService
+namespace Blogging.Client.Services   // 👈 Add this
 {
-    private readonly HttpClient _http;
-    private readonly IJSRuntime _js;
-
-    public ApiService(HttpClient http, IJSRuntime js)
+    public class ApiService
     {
-        _http = http;
-        _js = js;
-    }
+        private readonly HttpClient _http;
+        private readonly IJSRuntime _js;
 
-    private async Task AddAuthHeader()
-    {
-        var token = await _js.InvokeAsync<string>("bloggingAuth.getToken");
-        if (!string.IsNullOrEmpty(token))
+        public ApiService(HttpClient http, IJSRuntime js)
         {
-            if (_http.DefaultRequestHeaders.Contains("Authorization"))
+            _http = http;
+            _js = js;
+        }
+
+        private async Task AddAuthHeader()
+        {
+            var token = await _js.InvokeAsync<string>("bloggingAuth.getToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                if (_http.DefaultRequestHeaders.Contains("Authorization"))
+                    _http.DefaultRequestHeaders.Remove("Authorization");
+                _http.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            }
+            else
+            {
                 _http.DefaultRequestHeaders.Remove("Authorization");
-            _http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            }
         }
-        else
+
+        public async Task<T?> GetAsync<T>(string url)
         {
-            _http.DefaultRequestHeaders.Remove("Authorization");
+            return await _http.GetFromJsonAsync<T>(url);
         }
-    }
 
-    public async Task<T?> GetAsync<T>(string url)
-    {
-        return await _http.GetFromJsonAsync<T>(url);
-    }
-
-    public async Task<HttpResponseMessage> PostAsync<T>(string url, T payload, bool withAuth = false)
-    {
-        if (withAuth) await AddAuthHeader();
-        return await _http.PostAsJsonAsync(url, payload);
+        public async Task<HttpResponseMessage> PostAsync<T>(string url, T payload, bool withAuth = false)
+        {
+            if (withAuth) await AddAuthHeader();
+            return await _http.PostAsJsonAsync(url, payload);
+        }
     }
 }

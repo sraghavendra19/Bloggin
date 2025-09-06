@@ -1,21 +1,23 @@
 @page "/write"
+
+@using Blogging.Client.Services
+@using Blogging.Shared.DTOs
 @inject ApiService Api
-@inject AuthService Auth
+@inject AuthService AuthService
+@inject NavigationManager Nav
 
 <h3>Write a Post</h3>
 
 <div>
-    <input placeholder="Title" @bind="title" />
-    <br />
-    <select @bind="privacy">
+    <input placeholder="Title" @bind="title" class="form-control mb-2"/>
+    <select @bind="privacy" class="form-select mb-2">
         <option value="public">Public</option>
         <option value="followed">Followed</option>
         <option value="private">Private</option>
     </select>
-    <br/>
-    <textarea rows="12" cols="80" @bind="markdown"></textarea>
+    <textarea rows="12" cols="80" @bind="markdown" class="form-control mb-2"></textarea>
     <br />
-    <button @onclick="Save">Save</button>
+    <button class="btn btn-primary" @onclick="Save">Save</button>
 </div>
 
 @if (!string.IsNullOrEmpty(status))
@@ -32,11 +34,20 @@
     private async Task Save()
     {
         status = "";
-        var resp = await Api.PostAsync("/api/posts", new Blogging.Shared.DTOs.CreatePostRequest(title, markdown, privacy), withAuth: true);
+
+        // ✅ Use the correct route (singular 'post') to match PostController
+        var resp = await Api.PostAsync("/api/post", 
+            new CreatePostRequest(title, markdown, privacy), 
+            withAuth: true);
+
         if (resp.IsSuccessStatusCode)
         {
             status = "Saved!";
-            title = markdown = "";
+            title = "";
+            markdown = "";
+
+            // Navigate to the posts list
+            Nav.NavigateTo("/posts");
         }
         else
         {

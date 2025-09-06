@@ -1,18 +1,26 @@
-using Microsoft.AspNetCore.Components.Web;
+using Blogging.Client.Services;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Web;
 using Blogging.Client;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 
-// Use the SAME port as your backend server
+// HttpClient
 builder.Services.AddScoped(sp => new HttpClient
 {
-    BaseAddress = new Uri("http://localhost:5083/")  // 👈 Match this with your server's HTTPS port
+    BaseAddress = new Uri("http://localhost:5083/") // your backend port
 });
 
-// Register services
+// Services
 builder.Services.AddScoped<ApiService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<PostService>();
+
+
+// Add Authentication
+builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthProvider>();
+builder.Services.AddAuthorizationCore();
 
 await builder.Build().RunAsync();

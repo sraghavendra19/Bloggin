@@ -1,14 +1,13 @@
-using BCrypt.Net;
+using Blogging.Server.Services;
+using Blogging.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using MongoDB.Driver;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using BCrypt.Net;
+using MongoDB.Driver;
 using Blogging.Shared.DTOs;
-using Blogging.Shared.Models;
-using Blogging.Server.Services;
 
 namespace Blogging.Server.Controllers
 {
@@ -25,14 +24,14 @@ namespace Blogging.Server.Controllers
             _config = config;
         }
 
+        // ---------------- REGISTER ----------------
         [HttpPost("register")]
-        public async Task<IActionResult> Register(RegisterRequest req)
+        public async Task<IActionResult> Register([FromBody] RegisterRequest req)
         {
             var existing = await _mongo.Users.Find(u => u.Email == req.Email).FirstOrDefaultAsync();
-            if (existing != null)
-                return BadRequest(new { message = "Email already registered." });
+            if (existing != null) return BadRequest(new { message = "Email already registered" });
 
-            var user = new User
+            var newUser = new User
             {
                 Id = Guid.NewGuid().ToString(),
                 Email = req.Email,
@@ -40,48 +39,53 @@ namespace Blogging.Server.Controllers
                 CreatedAt = DateTime.UtcNow
             };
 
-            await _mongo.Users.InsertOneAsync(user);
-            return Ok(new { message = "Registered" });
+            await _mongo.Users.InsertOneAsync(newUser);
+            return Ok(new { message = "Registered successfully" });
         }
 
+        // ---------------- LOGIN ----------------
         [HttpPost("login")]
-        public async Task<IActionResult> Login(LoginRequest req)
+        public async Task<IActionResult> Login([FromBody] LoginRequest req)
         {
             var user = await _mongo.Users.Find(u => u.Email == req.Email).FirstOrDefaultAsync();
-            if (user == null) return Unauthorized(new { message = "Invalid credentials." });
-
-            bool valid = BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash);
-            if (!valid) return Unauthorized(new { message = "Invalid credentials." });
+            if (user == null || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
+            {
+                return Unauthorized(new { message = "Invalid credentials" });
+            }
 
             var token = GenerateJwtToken(user);
 
-            return Ok(new AuthResponse(token, user.Email));
+            return Ok(new
+            {
+                token,
+                user = new
+                {
+                    id = user.Id,
+                    email = user.Email
+                }
+            });
         }
 
+        // ---------------- TOKEN GENERATOR ----------------
         private string GenerateJwtToken(User user)
         {
-            var jwtSection = _config.GetSection("Jwt");
-            var key = jwtSection.GetValue<string>("Key")!;
-            var issuer = jwtSection.GetValue<string>("Issuer");
-            var audience = jwtSection.GetValue<string>("Audience");
-            var expiryMinutes = jwtSection.GetValue<int>("ExpiryMinutes", 60);
+            var jwtKey = _config["Jwt:Key"] ?? "this_is_a_super_long_default_key_1234567890!";
+            var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
 
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),
                 new Claim("id", user.Id),
                 new Claim("email", user.Email)
             };
 
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
-            var creds = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+            var creds = new SigningCredentials(
+                new SymmetricSecurityKey(keyBytes),
+                SecurityAlgorithms.HmacSha256
+            );
 
             var token = new JwtSecurityToken(
-                issuer,
-                audience,
-                claims,
-                expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
+                claims: claims,
+                expires: DateTime.UtcNow.AddHours(2),
                 signingCredentials: creds
             );
 
